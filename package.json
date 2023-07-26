@@ -7,9 +7,9 @@
   "main": "dist/plugin.system.js",
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "webpack --mode development",
     "start": "webpack-dev-server --mode development",
-    "prod" :"webpack-dev-server --mode production"
+    "build": "webpack --mode production --env production",
+    "dev": "webpack serve --config webpack.config.js"
   },
   "author": "",
   "license": "ISC",
