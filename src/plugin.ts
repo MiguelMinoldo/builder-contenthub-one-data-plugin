@@ -166,7 +166,6 @@ registerDataPlugin(
         const searchText = options?.searchText as string;
         const typeId = id;
         const entries = await getContentsByType(token, typeId);
-        console.log("Entries: " + JSON.stringify(entries));
 
         // specific entry...
         if (options?.resourceEntryId) {
