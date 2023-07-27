@@ -3,6 +3,7 @@ import pkg from "../package.json";
 import { getCHToken, getEncryptedToken } from "../lib/authentication";
 import { getContentTypes } from "../lib/getContentTypes";
 import { getContentsByType } from "../lib/getContentsByType";
+import qs from "qs";
 
 const pluginId = pkg.name;
 const metaFields = [
@@ -54,8 +55,8 @@ registerDataPlugin(
   },
   // settings will be an Observable map of the settings configured above
   async (settings: { get: (arg0: string) => string }) => {
-    var clientId = settings.get("clientId")?.trim();
-    var clientSecret = settings.get("clientSecret")?.trim();
+    let clientId = settings.get("clientId")?.trim();
+    let clientSecret = settings.get("clientSecret")?.trim();
     const token = await getCHToken(clientId, clientSecret);
     const encriptedClientId = await getEncryptedToken(clientId);
     const encriptedClientSecret = await getEncryptedToken(clientSecret);
@@ -85,7 +86,7 @@ registerDataPlugin(
                   name: "Page Size",
                   friendlName: "Page Size",
                   advanced: true,
-                  defaultValue: 1,
+                  defaultValue: 10,
                   min: 0,
                   max: 100,
                   type: "number",
@@ -100,34 +101,23 @@ registerDataPlugin(
                       value: key,
                     }))
                     .concat(
-                      acceptableFields.map((field) => ({
-                        label: field.name["en-US"],
-                        value: field.id,
-                      }))
+                      acceptableFields
+                        .filter(
+                          (key) => !chFieldsTypesToExclude.includes(key.type)
+                        )
+                        .map((field) => ({
+                          label: field.name["en-US"],
+                          value: field.id,
+                        }))
                     ),
                 },
-              ];
-              if (acceptableFields.length > 0) {
-                fields.push({
-                  name: "fields",
+                {
+                  name: "Search Query",
+                  friendlName: "Search Query",
                   advanced: true,
-                  type: "object",
-                  friendlyName: `${type.name["en-US"]} fields`,
-                  subFields: acceptableFields
-                    .filter(
-                      (field) => !chFieldsTypesToExclude.includes(field.type)
-                    )
-                    .map((field) => ({
-                      type:
-                        field.type === "Symbol"
-                          ? "text"
-                          : field.type.toLowerCase(),
-                      name: field.id,
-                      friendlyName: field.name["en-US"],
-                      helperText: `Query by a specific "${field.name["en-US"]}"" on ${field.type}`,
-                    })),
-                } as any);
-              }
+                  type: "string",
+                },
+              ];
               return fields;
             },
             toUrl: (options: any) => {
@@ -152,8 +142,15 @@ registerDataPlugin(
                 }, {});
               }
 
+              const params = qs.stringify({
+                ...options,
+                fields,
+                clientId: encriptedClientId,
+                clientSecret: encriptedClientSecret,
+              });
+
               // by query (TODO)
-              return `https://contenthub-one-builder-router.vercel.app/api/chonecontent/${options.entry}?clientId=${encriptedClientId}&clientSecret=${encriptedClientSecret}`;
+              return `https://contenthub-one-builder-router.vercel.app/api/chonesearch?${params}`;
             },
           };
           return chTypesFormatted;
