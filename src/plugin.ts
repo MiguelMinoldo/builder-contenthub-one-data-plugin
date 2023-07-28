@@ -123,7 +123,12 @@ registerDataPlugin(
             toUrl: (options: any) => {
               // by entry
               if (options.entry) {
-                return `https://contenthub-one-builder-router.vercel.app/api/chonecontent/${options.entry}?clientId=${encriptedClientId}&clientSecret=${encriptedClientSecret}`;
+                const params = qs.stringify({
+                  clientId: encriptedClientId,
+                  clientSecret: encriptedClientSecret,
+                  contentId: options.entry,
+                });
+                return `https://contenthub-one-builder-router.vercel.app/api/chonecontent/${params}`;
               }
 
               let fields =
