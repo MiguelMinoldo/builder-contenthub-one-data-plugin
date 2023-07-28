@@ -128,7 +128,7 @@ registerDataPlugin(
                   clientSecret: encriptedClientSecret,
                   contentId: options.entry,
                 });
-                return `https://contenthub-one-builder-router.vercel.app/api/chonecontent/${params}`;
+                return `https://contenthub-one-builder-router.vercel.app/api/chonecontent/?${params}`;
               }
 
               let fields =
