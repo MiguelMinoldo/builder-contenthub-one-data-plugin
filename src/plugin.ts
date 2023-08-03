@@ -3,6 +3,7 @@ import pkg from "../package.json";
 import { getCHToken, getEncryptedToken } from "../lib/authentication";
 import { getContentTypes } from "../lib/getContentTypes";
 import { getContentsByType } from "../lib/getContentsByType";
+import appState from '@builder.io/app-context';
 import qs from "qs";
 
 const pluginId = pkg.name;
@@ -67,6 +68,18 @@ registerDataPlugin(
           const acceptableFields = type.fields.filter((field) =>
             chFieldTypes.includes(field.type)
           );
+
+          const buildHeaders = () => {
+            const headers = {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json'
+            };
+  
+            return Object.entries(headers)
+              .map(([key, value]) => `headers.${key}=${value}`)
+              .join('&');
+          };
+
           const chTypesFormatted = {
             name: type.name["en-US"], // This en-US based read, ll be changed
             id: type.id,
@@ -118,17 +131,28 @@ registerDataPlugin(
                   type: "string",
                 },
               ];
+              if (acceptableFields.length > 0) {
+                fields.push({
+                  name: 'fields',
+                  advanced: true,
+                  type: 'object',
+                  friendlyName: `${type.name["en-US"]} fields`,
+                  subFields: acceptableFields.map(field => ({
+                    type: field.type === 'Symbol' ? 'text' : field.type.toLowerCase(),
+                    name: field.id,
+                    friendlyName: field.name["en-US"],
+                    helperText: `Query by a specific "${field.name["en-US"]}"" on ${type.name["en-US"]}`,
+                  })),
+                } as any);
+              }
               return fields;
             },
             toUrl: (options: any) => {
+              console.log('Fields:', options.fields)
               // by entry
               if (options.entry) {
-                const params = qs.stringify({
-                  clientId: encriptedClientId,
-                  clientSecret: encriptedClientSecret,
-                  contentId: options.entry,
-                });
-                return `https://contenthub-one-builder-router.vercel.app/api/chonecontent/?${params}`;
+                const url = `https://content-api.sitecorecloud.io/api/content/v1/items?id=${options.entry}`;
+                return `https://cdn.builder.io/api/v1/proxy-api?url=${url}&${buildHeaders()}&apiKey=${appState.user.apiKey}`
               }
 
               let fields =
@@ -147,15 +171,12 @@ registerDataPlugin(
                 }, {});
               }
 
-              const params = qs.stringify({
-                ...options,
-                fields,
-                clientId: encriptedClientId,
-                clientSecret: encriptedClientSecret,
-              });
-
-              // by query (TODO)
-              return `https://contenthub-one-builder-router.vercel.app/api/chonesearch?${params}`;
+              let url = 'https://content-api.sitecorecloud.io/api/content/v1/items?search=';
+             // by query
+             if (fields) {
+               url += `${fields["Search Query"]}`;
+             } 
+             return `https://cdn.builder.io/api/v1/proxy-api?url=${url}&${buildHeaders()}&apiKey=${appState.user.apiKey}`
             },
           };
           return chTypesFormatted;
