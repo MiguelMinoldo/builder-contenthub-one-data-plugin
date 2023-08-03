@@ -1,10 +1,15 @@
 import { registerDataPlugin } from "@builder.io/data-plugin-tools";
 import pkg from "../package.json";
-import { getCHToken, getEncryptedToken } from "../lib/authentication";
-import { getContentTypes } from "../lib/getContentTypes";
-import { getContentsByType } from "../lib/getContentsByType";
 import appState from '@builder.io/app-context';
-import qs from "qs";
+import { getCHToken } from "../lib/authentication";
+import {
+  ClientCredentialsScheme,
+  ContentHubOneClientFactory,
+  ContentHubOneClientOptions,
+  ContentItemSearchField,
+  ContentItemSearchRequest,
+  Equality,
+} from "@sitecore/contenthub-one-sdk";
 
 const pluginId = pkg.name;
 const metaFields = [
@@ -58,12 +63,16 @@ registerDataPlugin(
   async (settings: { get: (arg0: string) => string }) => {
     let clientId = settings.get("clientId")?.trim();
     let clientSecret = settings.get("clientSecret")?.trim();
+    const credentials = new ClientCredentialsScheme(
+      clientId,
+      clientSecret
+    );
+    const clientOptions = new ContentHubOneClientOptions({ allowUntrustedCertificates: true });
+    const client = ContentHubOneClientFactory.create(credentials, clientOptions);
     const token = await getCHToken(clientId, clientSecret);
-    const encriptedClientId = await getEncryptedToken(clientId);
-    const encriptedClientSecret = await getEncryptedToken(clientSecret);
     return {
       async getResourceTypes() {
-        const contentTypesCH1 = await getContentTypes(token);
+        const contentTypesCH1 = await client.contentTypes.enumerate();
         return contentTypesCH1.map((type) => {
           const acceptableFields = type.fields.filter((field) =>
             chFieldTypes.includes(field.type)
@@ -138,7 +147,7 @@ registerDataPlugin(
                   type: 'object',
                   friendlyName: `${type.name["en-US"]} fields`,
                   subFields: acceptableFields.map(field => ({
-                    type: field.type === 'Symbol' ? 'text' : field.type.toLowerCase(),
+                    type: field.type.toLowerCase(),
                     name: field.id,
                     friendlyName: field.name["en-US"],
                     helperText: `Query by a specific "${field.name["en-US"]}"" on ${type.name["en-US"]}`,
@@ -188,11 +197,17 @@ registerDataPlugin(
       ) {
         const searchText = options?.searchText as string;
         const typeId = id;
-        const entries = await getContentsByType(token, typeId);
-
+        const entries = await client.contentItems.getAsync(
+          new ContentItemSearchRequest().withFieldQuery(
+              ContentItemSearchField.contentType,
+              Equality.Equals,
+              typeId
+          ),
+      );
+        
         // specific entry...
         if (options?.resourceEntryId) {
-          const entry = entries.find(
+          const entry = entries.data.find(
             (item) => item.id === options.resourceEntryId
           );
           if (entry) {
@@ -206,9 +221,9 @@ registerDataPlugin(
         }
         // search query...
         else if (searchText != "") {
-          return entries
+          return entries.data
             .filter(({ name }) =>
-              name.toLowerCase().includes(searchText?.toLowerCase())
+              name?.toLowerCase().includes(searchText?.toLowerCase())
             )
             .map((entry) => ({
               id: entry.id,
@@ -216,7 +231,7 @@ registerDataPlugin(
             }));
         }
         // get all entries...
-        return entries.map((entry) => ({
+        return entries.data.map((entry) => ({
           id: entry.id,
           name: entry.name,
         }));
@@ -224,3 +239,4 @@ registerDataPlugin(
     };
   }
 ).then(() => {});
+
